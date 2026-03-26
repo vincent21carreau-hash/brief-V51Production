@@ -519,7 +519,7 @@ footer {
 const EMAILJS_PUBLIC_KEY = 'YOUR_EMAILJS_PUBLIC_KEY';   // Account > API Keys > Public Key
 const EMAILJS_SERVICE_ID = 'YOUR_EMAILJS_SERVICE_ID';   // Email Services > Service ID
 const EMAILJS_TEMPLATE_ID = 'YOUR_EMAILJS_TEMPLATE_ID'; // Email Templates > Template ID
-// Dans le template EmailJS, utilise ces variables : {{subject}}, {{message}}, {{client_name}}, {{client_email}}
+// Dans le template EmailJS, utilise ces variables : {{subject}}, {{message}} (le brief complet), {{client_name}}, {{client_email}}
 // ===================================
 
 emailjs.init(EMAILJS_PUBLIC_KEY);
@@ -549,34 +549,47 @@ function collectData() {
   return d;
 }
 
-function buildPrompt(d) {
-  const arr = v => Array.isArray(v) ? v.join(', ') : (v || 'Non précisé');
-  return `Tu es l'assistant de V51 Production, société de production vidéo haut de gamme. Un client vient de remplir un formulaire de brief. Génère un résumé structuré, professionnel et chaleureux en français. Utilise des titres courts en majuscules pour chaque section. Sois synthétique. Termine par une courte note personnelle bienveillante de la part de V51 Production.
-
-Données :
-- Nom : ${arr(d.nom)}
-- Email : ${arr(d.email)}
-- Téléphone : ${arr(d.tel)}
-- Entreprise : ${arr(d.entreprise)}
-- Type de projet : ${arr(d.type)}
-- Description : ${arr(d.description)}
-- Objectif : ${arr(d.objectif)}
-- Date de tournage : ${arr(d.date_tournage)}
-- Date de livraison : ${arr(d.date_livraison)}
-- Lieu : ${arr(d.lieu)}
-- Durée de présence : ${arr(d.duree_presence)}
-- Formats : ${arr(d.format)}
-- Durée du film : ${arr(d.duree_film)}
-- Diffusion : ${arr(d.diffusion)}
-- Ambiance : ${arr(d.ambiance)}
-- Références : ${arr(d.references)}
-- Importance musique : ${arr(d.musique)} / 5
-- Idée musique : ${arr(d.musique_idee)}
-- Budget : ${arr(d.budget)}
-- Source : ${arr(d.source)}
-- Notes : ${arr(d.notes)}
-
-Réponds uniquement avec le résumé formaté.`;
+function formatBrief(d) {
+  const v = k => Array.isArray(d[k]) ? d[k].join(', ') : (d[k] || '—');
+  return [
+    '📋 NOUVEAU BRIEF CLIENT — V51 PRODUCTION',
+    '═══════════════════════════════════════',
+    '',
+    '▸ CONTACT',
+    '  Nom : ' + v('nom'),
+    '  Email : ' + v('email'),
+    '  Téléphone : ' + v('tel'),
+    '  Entreprise : ' + v('entreprise'),
+    '',
+    '▸ PROJET',
+    '  Type : ' + v('type'),
+    '  Description : ' + v('description'),
+    '  Objectif : ' + v('objectif'),
+    '',
+    '▸ LOGISTIQUE',
+    '  Date de tournage : ' + v('date_tournage'),
+    '  Date de livraison : ' + v('date_livraison'),
+    '  Lieu : ' + v('lieu'),
+    '  Durée de présence : ' + v('duree_presence'),
+    '',
+    '▸ LIVRABLE',
+    '  Formats : ' + v('format'),
+    '  Durée du film : ' + v('duree_film'),
+    '  Diffusion : ' + v('diffusion'),
+    '',
+    '▸ AMBIANCE & STYLE',
+    '  Ambiance : ' + v('ambiance'),
+    '  Références : ' + v('references'),
+    '  Importance musique : ' + v('musique') + ' / 5',
+    '  Idée musique : ' + v('musique_idee'),
+    '',
+    '▸ BUDGET',
+    '  Budget : ' + v('budget'),
+    '',
+    '▸ DIVERS',
+    '  Source : ' + v('source'),
+    '  Notes : ' + v('notes'),
+  ].join('\n');
 }
 
 form.addEventListener('submit', async (e) => {
@@ -588,28 +601,13 @@ form.addEventListener('submit', async (e) => {
   document.querySelector('.progress-wrap').style.display = 'none';
 
   try {
-    // 1. Appel IA pour générer le résumé (en coulisse)
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: buildPrompt(data) }]
-      })
-    });
-    const json = await res.json();
-    const summary = json.content?.[0]?.text || 'Erreur lors de la génération du résumé.';
-
-    // 2. Envoi du résumé par email via EmailJS
     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
       subject: 'Nouveau brief client — ' + (data.nom || 'Anonyme'),
-      message: summary,
+      message: formatBrief(data),
       client_name: data.nom || 'Non précisé',
       client_email: data.email || 'Non précisé'
     });
 
-    // 3. Afficher la page de confirmation au client
     document.getElementById('loading').style.display = 'none';
     document.getElementById('success-section').style.display = 'block';
     document.getElementById('success-section').scrollIntoView({ behavior: 'smooth' });
